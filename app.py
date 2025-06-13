@@ -14,7 +14,7 @@ from langchain_core.vectorstores import InMemoryVectorStore
 st.set_page_config(page_title="LLM PDF Chatbot", layout="wide")
 st.title("Multi-PDF Chatbot")
 
-GEMINI_API_KEY = "AIzaSyBZNzvDfUmgG7CuLCikGxwAcJPf3OGLkn0"
+GEMINI_API_KEY = ""
 genai.configure(api_key=GEMINI_API_KEY)
 
 
