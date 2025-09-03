@@ -25,7 +25,7 @@ anthropic_api_key = None
 if model_choice == "ChatGPT":
     openai_api_key = st.sidebar.text_input("OpenAI API Key", type="password")
 elif model_choice == "Gemini":
-    openai_api_key = st.sidebar.text_input("OpenAI API Key", type="password")    
+    gemini_api_key = st.sidebar.text_input("Gemini API Key", type="password")    
 elif model_choice == "Claude":
     anthropic_api_key = st.sidebar.text_input("Anthropic API Key", type="password")
  
@@ -130,10 +130,11 @@ def query_llm(question, context, model="Gemni"):
         return response.content[0].text
 
     elif model == "Gemini":
+        if not gemini_api_key:
+            return " Gemini API Key missing."
         model = genai.GenerativeModel("gemini-2.0-flash")
         response = model.generate_content(prompt)
         return response.text
-
     return " Invalid Model Selected"
 
 # Ask get ans
@@ -151,4 +152,5 @@ if st.button(" Get Answer"):
             st.chat_message("assistant").write(answer)
     else:
         st.warning("Enter a question to get an answer.")
+
 
