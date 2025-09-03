@@ -14,18 +14,18 @@ from langchain_core.vectorstores import InMemoryVectorStore
 st.set_page_config(page_title="LLM PDF Chatbot", layout="wide")
 st.title("Multi-PDF Chatbot")
 
-GEMINI_API_KEY = ""
-genai.configure(api_key=GEMINI_API_KEY)
-
 
 st.sidebar.header("LLM Settings")
 model_choice = st.sidebar.selectbox("Choose LLM", ["Gemini","ChatGPT", "Claude"])
 
+gemini_api_key = None
 openai_api_key = None
 anthropic_api_key = None
 
 if model_choice == "ChatGPT":
     openai_api_key = st.sidebar.text_input("OpenAI API Key", type="password")
+elif model_choice == "Gemini":
+    openai_api_key = st.sidebar.text_input("OpenAI API Key", type="password")    
 elif model_choice == "Claude":
     anthropic_api_key = st.sidebar.text_input("Anthropic API Key", type="password")
  
@@ -151,3 +151,4 @@ if st.button(" Get Answer"):
             st.chat_message("assistant").write(answer)
     else:
         st.warning("Enter a question to get an answer.")
+
