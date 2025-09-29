@@ -1,156 +1,83 @@
-import streamlit as st
+# rag_chatbot.py
 import os
-import shutil
-from PyPDF2 import PdfReader
-from langchain.vectorstores import FAISS
-from langchain.embeddings import HuggingFaceEmbeddings
-from langchain_core.documents import Document
-import google.generativeai as genai
-import openai
-import anthropic
-from langchain_core.vectorstores import InMemoryVectorStore
+import streamlit as st
+from groq import Groq
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_community.vectorstores import FAISS
+from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain.docstore.document import Document
 
-#leyout
-st.set_page_config(page_title="LLM PDF Chatbot", layout="wide")
-st.title("Multi-PDF Chatbot")
+# ------------------------
+# 1. Setup Groq Client
+# ------------------------
+client = Groq(api_key=os.getenv("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"))
 
+# ------------------------
+# 2. Load & Embed Documents
+# ------------------------
+@st.cache_resource
+def load_vector_store():
+    # Example: Replace with your own docs
+    texts = [
+        "Groq provides ultra-fast inference for LLMs.",
+        "Streamlit helps build interactive AI apps easily.",
+        "Retrieval-Augmented Generation improves factual accuracy."
+    ]
 
-st.sidebar.header("LLM Settings")
-model_choice = st.sidebar.selectbox("Choose LLM", ["Gemini","ChatGPT", "Claude"])
+    docs = [Document(page_content=t) for t in texts]
 
-gemini_api_key = None
-openai_api_key = None
-anthropic_api_key = None
+    splitter = RecursiveCharacterTextSplitter(chunk_size=300, chunk_overlap=50)
+    splits = splitter.split_documents(docs)
 
-if model_choice == "ChatGPT":
-    openai_api_key = st.sidebar.text_input("OpenAI API Key", type="password")
-elif model_choice == "Gemini":
-    gemini_api_key = st.sidebar.text_input("Gemini API Key", type="password")    
-elif model_choice == "Claude":
-    anthropic_api_key = st.sidebar.text_input("Anthropic API Key", type="password")
- 
+    embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+    vectorstore = FAISS.from_documents(splits, embeddings)
 
-st.sidebar.markdown("---")
-st.sidebar.header(" Controls")
-clear_cache = st.sidebar.button(" Clear Cache & History")
-force_refresh = st.sidebar.button("Force Rerun")
-store_choice = st.sidebar.radio("Vector Store Type", ["FAISS (persistent)", "In-Memory (temporary)"])
-max_files = st.sidebar.slider("PDF Upload Limit", min_value=1, max_value=10, value=5)
+    return vectorstore
 
+vectorstore = load_vector_store()
 
-db_path = "faiss_index"
-if clear_cache:
-    st.session_state.clear()
-    if os.path.exists(db_path):
-        shutil.rmtree(db_path)
-    st.success("Cleared cache and FAISS index.")
+# ------------------------
+# 3. Streamlit UI
+# ------------------------
+st.set_page_config(page_title="Groq RAG Chatbot", page_icon="⚡", layout="wide")
+st.title("⚡ Groq-powered RAG Chatbot")
 
-if force_refresh:
-    st.rerun()
+if "messages" not in st.session_state:
+    st.session_state["messages"] = [
+        {"role": "system", "content": "You are a helpful AI assistant that answers using the given context."}
+    ]
 
+# Display chat history
+for msg in st.session_state["messages"]:
+    with st.chat_message(msg["role"]):
+        st.write(msg["content"])
 
-uploaded_files = st.file_uploader("Upload up to {} PDFs".format(max_files), type="pdf", accept_multiple_files=True)
+# User input
+user_input = st.chat_input("Ask me anything...")
 
-raw_texts = []
-if uploaded_files:
-    if len(uploaded_files) > max_files:
-        st.warning(f"Upload limit exceeded. Max allowed: {max_files}")
-        uploaded_files = uploaded_files[:max_files]
+if user_input:
+    # 1. Add user query
+    st.session_state["messages"].append({"role": "user", "content": user_input})
+    st.chat_message("user").write(user_input)
 
-    for file in uploaded_files:
-        pdf_reader = PdfReader(file)
-        text = ""
-        for page in pdf_reader.pages:
-            content = page.extract_text()
-            if content:
-                text += content
-        raw_texts.append(text)
+    # 2. Retrieve relevant docs
+    retriever = vectorstore.as_retriever(search_kwargs={"k": 3})
+    retrieved_docs = retriever.get_relevant_documents(user_input)
+    context = "\n\n".join([d.page_content for d in retrieved_docs])
 
-
-embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
-
-if st.button("Generate Vector Store"):
-    if not raw_texts:
-        st.warning("Upload PDFs first.")
-    else:
-        docs = [Document(page_content=txt) for txt in raw_texts]
-
-        if store_choice == "FAISS (persistent)":
-            faiss_store = FAISS.from_documents(docs, embeddings)
-            faiss_store.save_local(db_path)
-            st.session_state.vectorstore = faiss_store
-            st.success(" FAISS Vector Store created and saved.")
-        else:
-            memory_store = InMemoryVectorStore.from_documents(docs, embedding=embeddings)
-            st.session_state.vectorstore = memory_store
-            st.success(" In-Memory Vector Store created.")
-
-# Load FAISS (dep)
-
-if store_choice == "FAISS (persistent)" and os.path.exists(db_path) and "vectorstore" not in st.session_state:
-    st.session_state.vectorstore = FAISS.load_local(db_path, embeddings)
-
-# chat ui
-st.subheader(" Ask Questions About Your PDFs")
-
-if "chat_history" not in st.session_state:
-    st.session_state.chat_history = []
-
-query = st.text_input("Ask something:")
-
-# oii chat history
-for entry in st.session_state.chat_history:
-    st.chat_message("user").write(entry["user"])
-    st.chat_message("assistant").write(entry["bot"])
-
-# LLM Response 
-def query_llm(question, context, model="Gemni"):
-    prompt = f"Use the following context to answer the question:\n\n{context}\n\nQuestion: {question}"
-
-    if model == "ChatGPT":
-        if not openai_api_key:
-            return " OpenAI API Key missing."
-        openai.api_key = openai_api_key
-        response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
-            messages=[{"role": "user", "content": prompt}]
+    # 3. Ask Groq with context
+    with st.chat_message("assistant"):
+        response = client.chat.completions.create(
+            model="llama-3.1-8b-instant",   # other Groq models: mixtral-8x7b, llama-3.1-70b
+            messages=[
+                {"role": "system", "content": "You are a helpful assistant that answers based on context."},
+                {"role": "user", "content": f"Context:\n{context}\n\nQuestion:\n{user_input}"}
+            ],
+            temperature=0.3,
+            max_tokens=500
         )
-        return response['choices'][0]['message']['content']
+        bot_reply = response.choices[0].message.content
+        st.write(bot_reply)
 
-    elif model == "Claude":
-        if not anthropic_api_key:
-            return " Claude API Key missing."
-        client = anthropic.Anthropic(api_key=anthropic_api_key)
-        response = client.messages.create(
-            model="claude-3-opus-20240229",
-            max_tokens=500,
-            temperature=0.6,
-            messages=[{"role": "user", "content": prompt}]
-        )
-        return response.content[0].text
-
-    elif model == "Gemini":
-        if not gemini_api_key:
-            return " Gemini API Key missing."
-        model = genai.GenerativeModel("gemini-2.0-flash")
-        response = model.generate_content(prompt)
-        return response.text
-    return " Invalid Model Selected"
-
-# Ask get ans
-if st.button(" Get Answer"):
-    if query:
-        if "vectorstore" not in st.session_state:
-            st.warning(" No vectorstore generated or loaded.")
-        else:
-            docs = st.session_state.vectorstore.similarity_search(query, k=3)
-            context = "\n\n".join([doc.page_content for doc in docs])
-            with st.spinner("Thinking..."):
-                answer = query_llm(query, context, model=model_choice)
-            st.session_state.chat_history.append({"user": query, "bot": answer})
-            st.chat_message("user").write(query)
-            st.chat_message("assistant").write(answer)
-    else:
-        st.warning("Enter a question to get an answer.")
-
-
+    # 4. Save reply
+    st.session_state["messages"].append({"role": "assistant", "content": bot_reply})
