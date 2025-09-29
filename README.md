@@ -1,14 +1,23 @@
-# pdf-chatbot
-# Multi-PDF Chatbot 🤖📄
+# ⚡ Groq-powered RAG Chatbot
 
-A Streamlit app that lets you chat with multiple PDF documents using LLMs like Gemini, ChatGPT, and Claude.
+This is a Retrieval-Augmented Generation (RAG) chatbot built with **Streamlit** and **Groq**.  
+It retrieves relevant information from your documents using **FAISS vector search** and answers queries with **Groq LLMs**.
 
-## Features
-- Upload and parse multiple PDFs
-- Generate and save vector store (FAISS or In-Memory)
-- Use LLMs (Gemini, ChatGPT, Claude) to answer questions from your PDFs
+---
 
-## How to Run
-```bash
-pip install -r requirements.txt
-streamlit run app.py
+## ✨ Features
+- Chat interface with memory (Streamlit)
+- Fast inference with Groq models
+- Vector search using FAISS
+- Context-aware answers with RAG
+
+---
+
+## 🛠️ Installation
+
+1. **Clone this repo**:
+   ```bash
+
+
+   git clone https://github.com/rarihant14/groq-rag-chatbot.git
+   cd groq-rag-chatbot
