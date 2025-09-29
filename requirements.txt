@@ -1,9 +1,6 @@
 streamlit
-PyPDF2
+groq
 langchain
 langchain-community
-google-generativeai
-openai
-anthropic
 faiss-cpu
 sentence-transformers
