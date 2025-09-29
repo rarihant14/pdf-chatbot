@@ -10,7 +10,7 @@ from langchain.docstore.document import Document
 # ------------------------
 # 1. Setup Groq Client
 # ------------------------
-client = Groq(api_key=os.getenv("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"))
+client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
 # ------------------------
 # 2. Load & Embed Documents
@@ -81,3 +81,4 @@ if user_input:
 
     # 4. Save reply
     st.session_state["messages"].append({"role": "assistant", "content": bot_reply})
+
