@@ -1,18 +1,25 @@
 import os
 import streamlit as st
 from groq import Groq
+from dotenv import load_dotenv
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import FAISS
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain.docstore.document import Document
 from langchain_community.document_loaders import PyPDFLoader, TextLoader, UnstructuredWordDocumentLoader
-from dotenv import load_dotenv
 
 # ------------------------
-# 1. Setup Groq Client
+# 1. Load environment variables
 # ------------------------
 load_dotenv()
-client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+groq_api_key = os.getenv("GROQ_API_KEY")
+
+if not groq_api_key:
+    st.error("❌ GROQ_API_KEY not found. Please add it to your .env file.")
+    st.stop()
+
+# Initialize Groq client
+client = Groq(api_key=groq_api_key)
 
 # ------------------------
 # 2. Function to build vector store from uploaded docs
@@ -39,11 +46,9 @@ def build_vector_store(uploaded_files):
         docs = loader.load()
         documents.extend(docs)
 
-    # Split into chunks
     splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=100)
     splits = splitter.split_documents(documents)
 
-    # Embeddings + Vector DB
     embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
     vectorstore = FAISS.from_documents(splits, embeddings)
 
@@ -88,6 +93,7 @@ if mode == "💬 Normal Chat":
             bot_reply = response.choices[0].message.content
             st.write(bot_reply)
 
+        # ✅ ensure bot_reply exists before appending
         st.session_state["messages"].append({"role": "assistant", "content": bot_reply})
 
 # ------------------------
@@ -127,12 +133,10 @@ elif mode == "📂 Chat with Documents":
                 bot_reply = response.choices[0].message.content
                 st.write(bot_reply)
 
+            # ✅ ensure bot_reply exists before appending
             st.session_state["messages"].append({"role": "assistant", "content": bot_reply})
     else:
         st.info("📂 Please upload at least one document to start chatting with it.")
 
-
-    # 4. Save reply
-    st.session_state["messages"].append({"role": "assistant", "content": bot_reply})
 
 
