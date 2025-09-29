@@ -5,7 +5,6 @@ from dotenv import load_dotenv
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import FAISS
 from langchain_community.embeddings import HuggingFaceEmbeddings
-from langchain.docstore.document import Document
 from langchain_community.document_loaders import PyPDFLoader, TextLoader, UnstructuredWordDocumentLoader
 
 # ------------------------
@@ -90,11 +89,15 @@ if mode == "💬 Normal Chat":
                 temperature=0.7,
                 max_tokens=500
             )
-            bot_reply = response.choices[0].message.content
-            st.write(bot_reply)
 
-        # ✅ ensure bot_reply exists before appending
-        st.session_state["messages"].append({"role": "assistant", "content": bot_reply})
+            # Safe handling for empty response
+            if response.choices and len(response.choices) > 0:
+                bot_reply = response.choices[0].message.content
+            else:
+                bot_reply = "⚠️ Sorry, I couldn't generate a response."
+
+            st.write(bot_reply)
+            st.session_state["messages"].append({"role": "assistant", "content": bot_reply})
 
 # ------------------------
 # RAG Mode (Chat with Docs)
@@ -102,7 +105,9 @@ if mode == "💬 Normal Chat":
 elif mode == "📂 Chat with Documents":
     st.subheader("📂 Upload Documents and Chat")
 
-    uploaded_files = st.file_uploader("Upload PDF, TXT, or DOCX", type=["pdf", "txt", "docx"], accept_multiple_files=True)
+    uploaded_files = st.file_uploader(
+        "Upload PDF, TXT, or DOCX", type=["pdf", "txt", "docx"], accept_multiple_files=True
+    )
 
     if uploaded_files:
         vectorstore = build_vector_store(uploaded_files)
@@ -124,19 +129,31 @@ elif mode == "📂 Chat with Documents":
                 response = client.chat.completions.create(
                     model="llama-3.1-8b-instant",
                     messages=[
-                        {"role": "system", "content": "You are a helpful assistant that answers using the provided context."},
-                        {"role": "user", "content": f"Context:\n{context}\n\nQuestion:\n{user_input}"}
+                        {
+                            "role": "system",
+                            "content": "You are a helpful assistant that answers using the provided context."
+                        },
+                        {
+                            "role": "user",
+                            "content": f"Context:\n{context}\n\nQuestion:\n{user_input}"
+                        }
                     ],
                     temperature=0.3,
                     max_tokens=500
                 )
-                bot_reply = response.choices[0].message.content
-                st.write(bot_reply)
 
-            # ✅ ensure bot_reply exists before appending
-            st.session_state["messages"].append({"role": "assistant", "content": bot_reply})
+                # Safe handling for empty response
+                if response.choices and len(response.choices) > 0:
+                    bot_reply = response.choices[0].message.content
+                else:
+                    bot_reply = "⚠️ Sorry, I couldn't generate a response."
+
+                st.write(bot_reply)
+                st.session_state["messages"].append({"role": "assistant", "content": bot_reply})
+
     else:
         st.info("📂 Please upload at least one document to start chatting with it.")
+
 
 
 
